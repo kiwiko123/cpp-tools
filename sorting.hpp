@@ -3,6 +3,7 @@
 
 #include <functional>
 #include <memory>
+#include <utility>
 #include <math.h>
 
 
@@ -25,6 +26,29 @@ namespace
 	}
 }
 
+
+/* O(N^2) sorting algorithm.
+ * Insertion sort maintains 2 portions of the target array: [sorted | unsorted].
+ * At each iteration, the cursor '|' moves up one position, 
+ * and moves 1 value from the unsorted portion to its correct position in the sorted portion,
+ * by starting from the end of the sorted portion and stably swapping it towards the front of the array until it is appropriately positioned.
+ * As such, insertion sort is a stable, in-place algorithm.
+ * For already sorted or nearly-sorted input containers, insertion sort approaches linear time.
+ */
+template <typename BidirectionalIterator, typename T>
+void insertion_sort(BidirectionalIterator first, BidirectionalIterator last, T* target, const std::function<bool(const T&, const T&)>& less_than = std::less<T>())
+{
+	unsigned int i = 0;
+	for (BidirectionalIterator current = first; current != last; ++current)
+	{
+		target[i] = *current;
+		for (int back = i; back > 0 && less_than(target[back], target[back - 1]); --back)
+		{
+			std::swap(target[back], target[back - 1]);
+		}
+		++i;
+	}
+}
 
 
 /* O(N) sorting algorithm for integer based keys.
