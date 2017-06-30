@@ -141,14 +141,18 @@ void counting_sort(RandomAccessIterator first, RandomAccessIterator last, const 
         if (table.find(i) == table.end())
         {
             table[off] = *(first + off);
+            *(first + off) = *current;
         }
         else
         {
-            k = table.at(i);
+            int index = table.at(i);
+            k = key(index);
             off = offsets[k];
+            *(first + off) = index;
         }
+        std::cout << i << ": key=" << k << "; off=" << off + 1 << std::endl;
 
-        *(first + off) = k;
+        //*(first + off) = *current;
 		++offsets[k];
         ++i;
 	}
