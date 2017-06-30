@@ -9,6 +9,7 @@
 
 #include <functional>
 #include <memory>
+#include <unordered_map>
 #include <utility>
 #include <math.h>
 
@@ -103,8 +104,8 @@ void insertion_sort(BidirectionalIterator first, BidirectionalIterator last)
  * Runs in Θ(2n + 2r) time, where n is the number of items in the input container, and r is the range;
  * generalizing to O(N) when n is significantly greater than r.
  */
-template <typename InputIterator, typename UnaryKey, typename T>
-void counting_sort(InputIterator first, InputIterator last, const UnaryKey& key, T* target_array, unsigned int range)
+template <typename RandomAccessIterator, typename UnaryKey>
+void counting_sort(RandomAccessIterator first, RandomAccessIterator last, const UnaryKey& key, unsigned int range)
 {
 	std::unique_ptr<int[]> occurrences{new int[range]};
 	std::unique_ptr<int[]> offsets{new int[range]};
@@ -114,24 +115,42 @@ void counting_sort(InputIterator first, InputIterator last, const UnaryKey& key,
 		offsets[i] = 0;
 	}
 
-	InputIterator restore = first;
-	while (first != last)
+    // count how many times each integer key in the container appears
+    for (RandomAccessIterator current = first; current != last; ++current)
 	{
-		++(occurrences[key(*first)]);
-		++first;
+		++occurrences[key(*current)];
 	}
 
+    // calculate offsets for each key;
+    // determine where each key belongs in the sorted order
 	for (unsigned int i = 1; i < range; ++i)
 	{
 		offsets[i] = offsets[i - 1] + occurrences[i - 1];
 	}
 
-	while (restore != last)
+    occurrences.reset();                    // unneeded after populating offsets array
+    unsigned int i = 0;                     // current iteration number
+    std::unordered_map<int, int> table;     // track values from the container as the original elements are overwritten
+
+    // sort elements in the container
+    for (RandomAccessIterator current = first; current != last; ++current)
 	{
-		int k = key(*restore);
-		target_array[offsets[k]] = *restore;
-		++(offsets[k]);
-		++restore;
+        int k = key(*current);
+        int off = offsets[k];
+
+        if (table.find(i) == table.end())
+        {
+            table[off] = *(first + off);
+        }
+        else
+        {
+            k = table.at(i);
+            off = offsets[k];
+        }
+
+        *(first + off) = k;
+		++offsets[k];
+        ++i;
 	}
 }
 
@@ -139,17 +158,17 @@ void counting_sort(InputIterator first, InputIterator last, const UnaryKey& key,
 /* O(N) sorting algorithm for integer based keys.
  * Sorts integer keys by least-significant digits, which are obtained in Θ(1) time through arithmetic operations.
  * The number of values each digit can have is called the radix - 
- *    i.e., for typical numbers [0-9], the radix would be 10, as there are possible 10 digits between 0 and 9 (inclusive).
+ *  i.e., for typical numbers [0-9], the radix would be 10, as there are possible 10 digits between 0 and 9 (inclusive).
  * Performs k counting sorts, where k is the number of digits of each value in the array (e.g., 100 has 3 digits).
  *
  * An example is as follows:
  *   {131, 124, 100} would make 3 passes:
  *   	1) {100, 131, 124}
- *   		  ^    ^    ^
+ *            ^    ^    ^
  *  	2) {100, 124, 131}
- *  		 ^    ^    ^
+ *           ^    ^    ^
  *  	3) {100, 124, 131}
- *  	    ^    ^    ^
+ *          ^    ^    ^
  * 
  * Placing a tight bound on its operations, radix sort runs in Θ(d(n + r)) time, where:
  *    - d = number of digits
@@ -166,7 +185,7 @@ void radix_sort(InputIterator first, InputIterator last, const UnaryKey& key, T*
 	while (pass++ < max_iterations)
 	{
 		unsigned int* addr = &max_iterations;
-		counting_sort(first, last, [pass, &key, addr, radix](const T& item) -> int { return radix_sort_on_pass(key(item), pass, addr, radix); }, target_array, radix);
+		counting_sort(first, last, [pass, &key, addr, radix](const T& item) -> int { return radix_sort_on_pass(key(item), pass, addr, radix); }, radix);
 	}
 }
 
