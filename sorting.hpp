@@ -99,10 +99,11 @@ void insertion_sort(BidirectionalIterator first, BidirectionalIterator last)
  *   in which the sorted elements will be placed.
  * range is the maximum value of the integers to be sorted.
  *
- * Counting sort is NOT an in-place algorithm, as it utilizes Θ(2r) space (for temporary arrays to count occurrences and offsets),
- * where r is the range.
- * Runs in Θ(2n + 2r) time, where n is the number of items in the input container, and r is the range;
- * generalizing to O(N) when n is significantly greater than r.
+ * Counting sort is NOT an in-place algorithm, as it utilizes Θ(2R) + O(N) space 
+ *   (for temporary arrays to count occurrences and offsets, and map for tracking overwritten values),
+ * where R is the range.
+ * Runs in Θ(2N + 2R) time, where N is the number of items in the input container, and R is the range;
+ * generalizing to O(N) when n is significantly greater than R.
  */
 template <typename RandomAccessIterator, typename UnaryKey>
 void counting_sort(RandomAccessIterator first, RandomAccessIterator last, const UnaryKey& key, unsigned int range)
@@ -135,24 +136,27 @@ void counting_sort(RandomAccessIterator first, RandomAccessIterator last, const 
     // sort elements in the container
     for (RandomAccessIterator current = first; current != last; ++current)
 	{
-        int k = key(*current);
-        int off = offsets[k];
+		int k;
+		unsigned int off;
 
-        if (table.find(i) == table.end())
+		const auto found = table.find(i);
+        if (found == table.end())
         {
+			k = key(*current);
+			off = offsets[k];
             table[off] = *(first + off);
             *(first + off) = *current;
         }
         else
         {
-            int index = table.at(i);
+            int index = found->second;
             k = key(index);
             off = offsets[k];
+			table[off] = *(first + off);
             *(first + off) = index;
+			table.erase(i);		// remove after lookup, to reduce linear space
         }
-        std::cout << i << ": key=" << k << "; off=" << off + 1 << std::endl;
 
-        //*(first + off) = *current;
 		++offsets[k];
         ++i;
 	}
@@ -182,6 +186,8 @@ void counting_sort(RandomAccessIterator first, RandomAccessIterator last, const 
  */
 template <typename InputIterator, typename UnaryKey, typename T>
 void radix_sort(InputIterator first, InputIterator last, const UnaryKey& key, T* target_array, unsigned int radix)
+//template <typename RandomAccessIterator, typename T>
+//void radix_sort(RandomAccessIterator first, RandomAccessIterator last, std::function<int(T x)> key, unsigned int radix)
 {
 	unsigned int pass = 0;
 	unsigned int max_iterations = 1;
