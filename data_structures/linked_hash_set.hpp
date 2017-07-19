@@ -1,6 +1,20 @@
-#ifndef _LINKED_HASH_SET_HPP
-#define _LINKED_HASH_SET_HPP
+#ifndef DATA_STRUCTURES_LINKED_HASH_SET_HPP
+#define DATA_STRUCTURES_LINKED_HASH_SET_HPP
 
+// This templated header file defines a LinkedHashSet implementation - 
+// a set, which retains the time complexity properties of a standard hash table,
+// but which also maintains the order in which objects are added.
+// 
+// This implementation uses a hash table (std::unordered_map) as its underlying data structure.
+// Each item contains a pointer to the previous and next items in the set, conceptually representing a doubly-linked list.
+// Bidirectional iterators are implemented simply by following each link to its next/previous neighbor.
+//
+// The comment-descriptions nested within the member function declarations go into further detail regarding time complexity.
+// 
+// Author: Geoffrey Ko (2017)
+// Developed using the following compiler configuration:
+//   compiler: g++ (GCC) 5.4.0
+//   flags: -std=c++14 -ggdb
 #include <iostream>
 #include <iterator>
 #include <memory>
@@ -25,6 +39,9 @@ public:
 	// Constructors
 	LinkedHashSet();
 
+	/* Range constructor - populates set with elements [first, last).
+	 * Maintains the order produced by InputIterator::operator++().
+	 */
 	template <typename InputIterator>
 	LinkedHashSet(InputIterator first, InputIterator last);
 
@@ -32,17 +49,59 @@ public:
 	template <typename TT>
 	friend std::ostream& operator<<(std::ostream& os, const LinkedHashSet<TT>& obj);
 
+	/* Returns true if the set is NOT empty, or false if it is.
+	 * Complexity:
+	 *   Θ(1)
+	 */
 	operator bool() const;
+
+	/* Returns true if both sets have the same values and same ordering.
+	 * Complexity: 
+	 *   Average case: O(N)
+	 *   Best case: Ω(1) when sizes are different
+	 */
 	bool operator==(const LinkedHashSet<T>& other) const;
 	bool operator!=(const LinkedHashSet<T>& other) const;
 
 	// Member Functions
+	/* Returns the number of items in the set.
+	 * Complexity:
+	 *   Θ(1)
+	 */
 	int size() const;
+
+	/* Returns true if item is in the set.
+	 * Complexity:
+	 *   Θ(1)
+	 */
 	bool contains(const T& item) const;
+
+	/* Returns true if no items are in the set (i.e., size() == 0)
+	 * Complexity:
+	 *   Θ(1)
+	 */
 	bool empty() const;
 
+	/* Adds item into the set, "appending" it to the back (in terms of ordering).
+	 * Does nothing if item is already contained in the set.
+	 * Complexity:
+	 *   Average case: amortized O(1)
+	 *   Worst case: O(N) when a rehash is triggered.
+	 */
 	void insert(const T& item);
+
+	/* Removes item from the set, if it exists.
+	 * If item is not in the set, throws std::runtime_error.
+	 * Complexity:
+	 *   Average case: O(1)
+	 *   Worst (and improbable) case: O(N) if every item in the set were to collide into the same bucket.
+	 */
 	void erase(const T& item);
+
+	/* Removes all items from the set.
+	 * Complexity:
+	 *   Θ(N)
+	 */
 	void clear();
 
 
@@ -54,7 +113,6 @@ public:
 	{
 	public:
 		iterator(LinkedHashSet<T>* set, LinkType start, unsigned int visited);
-		iterator(LinkedHashSet<T>* set, LinkType start);
 
 		bool operator==(const iterator& other) const;
 		bool operator!=(const iterator& other) const;
@@ -63,7 +121,7 @@ public:
 		auto operator--() -> iterator&;
 		auto operator--(int) -> iterator;
 		const T& operator*() const;
-		const T* operator->() const;
+		const LinkType operator->() const;
 
 	private:
 		LinkedHashSet<T>* ref;
@@ -295,6 +353,13 @@ const T& LinkedHashSet<T>::iterator::operator*() const
 }
 
 template <typename T>
+const typename LinkedHashSet<T>::LinkType LinkedHashSet<T>::iterator::operator->() const
+{
+	bound_check("LinkedHashSet::iterator::operator-> iterator past end");
+	return current;
+}
+
+template <typename T>
 void LinkedHashSet<T>::iterator::bound_check(const std::string& message) const
 {
 	if (!current)
@@ -303,4 +368,4 @@ void LinkedHashSet<T>::iterator::bound_check(const std::string& message) const
 	}
 }
 
-#endif // _LINKED_HASH_SET_HPP
+#endif // DATA_STRUCTURES_LINKED_HASH_SET_HPP
