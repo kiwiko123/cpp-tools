@@ -3,7 +3,7 @@
 
 // This templated header file defines a LinkedHashSet implementation - 
 // a set, which retains the time complexity properties of a standard hash table,
-// but which also maintains the order in which objects are added.
+// while also maintaining the order in which objects are added.
 // 
 // This implementation uses a hash table (std::unordered_map) as its underlying data structure.
 // Each item contains a pointer to the previous and next items in the set, conceptually representing a doubly-linked list.
@@ -15,6 +15,7 @@
 // Developed using the following compiler configuration:
 //   compiler: g++ (GCC) 5.4.0
 //   flags: -std=c++14 -ggdb
+
 #include <iostream>
 #include <iterator>
 #include <memory>
@@ -226,7 +227,7 @@ void LinkedHashSet<T>::insert(const T& item)
 		entry.previous = last;
 		entry.next = LinkType{nullptr};
 
-		table[item] = std::move(entry);
+		table[*link] = std::move(entry);
 		last = link;
 	}
 }
