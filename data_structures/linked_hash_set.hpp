@@ -2,6 +2,7 @@
 #define _LINKED_HASH_SET_HPP
 
 #include <iostream>
+#include <iterator>
 #include <memory>
 #include <stdexcept>
 #include <string>
@@ -21,14 +22,21 @@ private:
 	};
 
 public:
+	// Constructors
 	LinkedHashSet();
 
+	template <typename InputIterator>
+	LinkedHashSet(InputIterator first, InputIterator last);
+
+	// Operators
 	template <typename TT>
 	friend std::ostream& operator<<(std::ostream& os, const LinkedHashSet<TT>& obj);
 
+	operator bool() const;
 	bool operator==(const LinkedHashSet<T>& other) const;
 	bool operator!=(const LinkedHashSet<T>& other) const;
 
+	// Member Functions
 	int size() const;
 	bool contains(const T& item) const;
 	bool empty() const;
@@ -37,7 +45,33 @@ public:
 	void erase(const T& item);
 	void clear();
 
-	void print() const;
+
+	class iterator;
+	auto begin() const -> iterator;
+	auto end() const -> iterator;
+
+	class iterator : public std::iterator<std::bidirectional_iterator_tag, T>
+	{
+	public:
+		iterator(LinkedHashSet<T>* set, LinkType start, unsigned int visited);
+		iterator(LinkedHashSet<T>* set, LinkType start);
+
+		bool operator==(const iterator& other) const;
+		bool operator!=(const iterator& other) const;
+		auto operator++() -> iterator&;
+		auto operator++(int) -> iterator;
+		auto operator--() -> iterator&;
+		auto operator--(int) -> iterator;
+		const T& operator*() const;
+		const T* operator->() const;
+
+	private:
+		LinkedHashSet<T>* ref;
+		LinkType current;
+		unsigned int traversed;
+
+		void bound_check(const std::string& message) const;
+	};
 
 
 private:
@@ -54,11 +88,36 @@ LinkedHashSet<T>::LinkedHashSet()
 }
 
 template <typename T>
+template <typename InputIterator>
+LinkedHashSet<T>::LinkedHashSet(InputIterator first, InputIterator last) : LinkedHashSet<T>{}
+{
+	while (first != last)
+	{
+		insert(*(first++));
+	}
+}
+
+template <typename T>
 std::ostream& operator<<(std::ostream& os, const LinkedHashSet<T>& obj)
 {
 	os << "LinkedHashSet(";
+	auto i = obj.begin();
+	if (obj)
+	{
+		os << *(i++);
+		while (i != obj.end())
+		{
+			os << ", " << *(i++);
+		}
+	}
 	os << ")";
 	return os;
+}
+
+template <typename T>
+LinkedHashSet<T>::operator bool() const
+{
+	return !empty();
 }
 
 template <typename T>
@@ -77,6 +136,12 @@ template <typename T>
 int LinkedHashSet<T>::size() const
 {
 	return table.size();
+}
+
+template <typename T>
+bool LinkedHashSet<T>::empty() const
+{
+	return size() == 0;
 }
 
 template <typename T>
@@ -150,13 +215,91 @@ void LinkedHashSet<T>::clear()
 }
 
 template <typename T>
-void LinkedHashSet<T>::print() const
+auto LinkedHashSet<T>::begin() const -> iterator
 {
-	auto current = head;
-	while (current)
+	return iterator{const_cast<LinkedHashSet<T>*>(this), head, 0};
+}
+
+template <typename T>
+auto LinkedHashSet<T>::end() const -> iterator
+{
+	unsigned int sz = size();		// silence g++ warning about conflicting types (unsigned int vs. int)
+	return iterator{const_cast<LinkedHashSet<T>*>(this), LinkType{nullptr}, sz};
+}
+
+template <typename T>
+LinkedHashSet<T>::iterator::iterator(LinkedHashSet<T>* set, LinkType start, unsigned int visited)
+	: ref{set}, current{start}, traversed{visited}
+{
+}
+
+template <typename T>
+bool LinkedHashSet<T>::iterator::operator==(const iterator& other) const
+{
+	return ref == other.ref && traversed == other.traversed;
+}
+
+template <typename T>
+bool LinkedHashSet<T>::iterator::operator!=(const iterator& other) const
+{
+	return !operator==(other);
+}
+
+template <typename T>
+auto LinkedHashSet<T>::iterator::operator++() -> iterator&
+{
+	if (current && traversed < ref->size())
 	{
-		std::cout << *current << std::endl;
-		current = table.at(*current).next;
+		current = ref->table.at(*current).next;
+		++traversed;
+	}
+	return *this;
+}
+
+template <typename T>
+auto LinkedHashSet<T>::iterator::operator++(int) -> iterator
+{
+	iterator state{*this};		// invoke implicit copy constructor
+	operator++();
+	return state;
+}
+
+template <typename T>
+auto LinkedHashSet<T>::iterator::operator--() -> iterator&
+{
+	if (!current)	// past end
+	{
+		current = ref->last;
+	}
+	if (current && traversed >= 0)
+	{
+		current = ref->table.at(*current).previous;
+		--traversed;
+	}
+	return *this;
+}
+
+template <typename T>
+auto LinkedHashSet<T>::iterator::operator--(int) -> iterator
+{
+	iterator state{*this};
+	operator--();
+	return state;
+}
+
+template <typename T>
+const T& LinkedHashSet<T>::iterator::operator*() const
+{
+	bound_check("LinkedHashSet::iterator::operator* - iterator past end");
+	return *current;
+}
+
+template <typename T>
+void LinkedHashSet<T>::iterator::bound_check(const std::string& message) const
+{
+	if (!current)
+	{
+		throw std::runtime_error{message};
 	}
 }
 
