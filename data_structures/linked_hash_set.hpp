@@ -83,6 +83,18 @@ public:
 	 */
 	bool empty() const;
 
+	/* Returns a const-reference to the first item in the set.
+	 * Complexity:
+	 *   Θ(1)
+	 */
+	const T& front() const;
+
+	/* Returns a const-reference to the last item in the set.
+	 * Complexity:
+	 *   Θ(1)
+	 */
+	const T& back() const;
+
 	/* Adds item into the set, "appending" it to the back (in terms of ordering).
 	 * Does nothing if item is already contained in the set.
 	 * Complexity:
@@ -99,13 +111,25 @@ public:
 	 */
 	void erase(const T& item);
 
+	/* Removes and returns (a copy of) the first item in the set.
+	 * Complexity:
+	 *   Θ(1)
+	 */
+	T pop_front();
+
+	/* Removes and returns (a copy of) the last item in the set.
+	 * Complexity:
+	 *   Θ(1)
+	 */
+	T pop_back();
+
 	/* Removes all items from the set.
 	 * Complexity:
 	 *   Θ(N)
 	 */
 	void clear();
 
-
+	// Iterator Implementation
 	class iterator;
 	auto begin() const -> iterator;
 	auto end() const -> iterator;
@@ -115,6 +139,9 @@ public:
 	public:
 		iterator(LinkedHashSet<T>* set, LinkType start, unsigned int visited);
 
+		/* Complexity:
+		 *   All iterator operations incur O(1) time.
+		 */
 		bool operator==(const iterator& other) const;
 		bool operator!=(const iterator& other) const;
 		auto operator++() -> iterator&;
@@ -127,8 +154,12 @@ public:
 	private:
 		LinkedHashSet<T>* ref;
 		LinkType current;
-		unsigned int traversed;
+		unsigned int traversed;	// store a value representing the current "index"
+								// to allow Θ(1) iterator equality comparisons.
 
+		/* If the iterator is already past the end, throws std::runtime_error{message}.
+		 * Helper member function for operator* and operator->.
+		 */
 		void bound_check(const std::string& message) const;
 	};
 
@@ -260,6 +291,22 @@ void LinkedHashSet<T>::erase(const T& item)
 	{
 		last = previous;
 	}
+}
+
+template <typename T>
+T LinkedHashSet<T>::pop_front()
+{
+	T value = *head;
+	erase(value);
+	return value;
+}
+
+template <typename T>
+T LinkedHashSet<T>::pop_back()
+{
+	T value = *last;
+	erase(value);
+	return value;
 }
 
 template <typename T>
