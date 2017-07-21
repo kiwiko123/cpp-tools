@@ -67,6 +67,24 @@ public:
 	bool operator==(const LinkedHashSet<T>& other) const;
 	bool operator!=(const LinkedHashSet<T>& other) const;
 
+	/* The complexity of each of the following relational operators is Θ(min(N, K)), 
+	 * where K is the number of elements in 'other'
+	 */
+
+	/* Returns true if this is a proper subset of other */
+	bool operator<(const LinkedHashSet<T>& other) const;
+
+	/* Returns true if this is a subset of other */
+	bool operator<=(const LinkedHashSet<T>& other) const;
+
+	/* Returns true if this is a proper superset of other */
+	bool operator>(const LinkedHashSet<T>& other) const;
+
+	/* Returns true if this is a superset of other */
+	bool operator>=(const LinkedHashSet<T>& other) const;
+
+
+
 	// Member Functions
 	/* Returns the number of items in the set.
 	 * Complexity:
@@ -226,13 +244,37 @@ LinkedHashSet<T>::operator bool() const
 template <typename T>
 bool LinkedHashSet<T>::operator==(const LinkedHashSet<T>& other) const
 {
-	return size() == other.size();
+	return table == other.table;
 }
 
 template <typename T>
 bool LinkedHashSet<T>::operator!=(const LinkedHashSet<T>& other) const
 {
 	return !operator==(other);
+}
+
+template <typename T>
+bool LinkedHashSet<T>::operator<(const LinkedHashSet<T>& other) const
+{
+	return other > *this;
+}
+
+template <typename T>
+bool LinkedHashSet<T>::operator<=(const LinkedHashSet<T>& other) const
+{
+	return !(other < *this);
+}
+
+template <typename T>
+bool LinkedHashSet<T>::operator>(const LinkedHashSet<T>& other) const
+{
+	return size() > other.size() && *this >= other;
+}
+
+template <typename T>
+bool LinkedHashSet<T>::operator>=(const LinkedHashSet<T>& other) const
+{
+	return std::includes(begin(), end(), other.begin(), other.end());
 }
 
 template <typename T>
