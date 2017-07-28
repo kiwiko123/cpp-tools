@@ -53,8 +53,8 @@ public:
 	LinkedHashSet(InputIterator first, InputIterator last);
 
 	// Operators
-	template <typename TT>
-	friend std::ostream& operator<<(std::ostream& os, const LinkedHashSet<TT>& obj);
+	template <typename TT, typename HashT, typename PredicateT>
+	friend std::ostream& operator<<(std::ostream& os, const LinkedHashSet<TT, HashT, PredicateT>& obj);
 
 	/* Returns true if the set is NOT empty, or false if it is.
 	 * Complexity:
@@ -138,13 +138,13 @@ public:
 
 	/* Removes and returns (a copy of) the first item in the set.
 	 * Complexity:
-	 *   Θ(1)
+	 *   (see LinkedHashSet::erase)
 	 */
 	T pop_front();
 
 	/* Removes and returns (a copy of) the last item in the set.
 	 * Complexity:
-	 *   Θ(1)
+	 *   (see LinkedHashSet::erase)
 	 */
 	T pop_back();
 
@@ -206,7 +206,7 @@ public:
 	// LinkedHashSet does not support non-const iterators, as hash tables cannot have values reassigned (without rehashing them).
 	auto begin() const -> iterator;
 	auto end() const -> iterator;
-	};
+};
 
 
 template <typename T, typename Hash, typename Predicate>
@@ -219,7 +219,10 @@ template <typename T, typename Hash, typename Predicate>
 template <typename InputIterator>
 LinkedHashSet<T, Hash, Predicate>::LinkedHashSet(InputIterator first, InputIterator last) : LinkedHashSet<T, Hash, Predicate>{}
 {
-	std::for_each(first, last, [this](const T& item){ insert(item); });
+	while (first != last)
+	{
+		insert(*(first++));
+	}
 }
 
 template <typename T, typename Hash, typename Predicate>
@@ -373,9 +376,9 @@ void LinkedHashSet<T, Hash, Predicate>::clear()
 {
 	if (!empty())
 	{
-		table.clear();
 		head.reset();
 		last.reset();
+		table.clear();
 	}
 }
 
