@@ -2,156 +2,142 @@
 #define DATA_STRUCTURES_LRU_CACHE_HPP
 
 #include <iostream>
-#include <memory>
-#include <stdexcept>
 #include <string>
+#include <unordered_map>
+#include "cache_linked_list.hpp"
 
+#ifndef DEBUG
 #define DEBUG true
+#endif
+#define LOGME(m) if (DEBUG) { std::cout << __FILE__ << std::endl << "  " << __func__ << std::endl << "    \"" << (m) << "\"" << std::endl; }
 
-template <typename T>
+
+template <typename Key, typename T>
 class LRUCache
 {
-private:
-    struct Node;
-protected:
-    typedef std::shared_ptr<Node> NodePointer;
-private:
-    struct Node
-    {
-        T value;
-        NodePointer previous;
-        NodePointer next;
-
-        Node(const T& v, NodePointer p, NodePointer n);
-        Node(const T& v);
-    };
-
 public:
     LRUCache();
 
-    template <typename QualifiedT>
-    friend std::ostream& operator<<(std::ostream& os, const LRUCache<QualifiedT>& c);
+	template <typename K, typename V>
+	friend std::ostream& operator<<(std::ostream& os, const LRUCache<K, V>& map);
+	T& operator[](const Key& key);
 
-    virtual bool empty() const = 0;
-    virtual int size() const = 0;
+    bool empty() const;
+    int size() const;
+    bool contains(const Key& key) const;
 
-protected:
-    virtual std::string name() const;
+    void push(const Key& key, const T& value);
+    void erase(const Key& key);
 
-    NodePointer front() const;
-    NodePointer back() const;
-    NodePointer push_back_node(const T& value);
-    void erase_node(NodePointer node);
-    void pop_first_node();
-    void pop_last_node();
+    const T& get(const Key& key);
+
 
 private:
-    NodePointer head;
-    NodePointer tail;
+    std::unordered_map<Key, typename CacheLinkedList<T>::NodePointer> table;
+    CacheLinkedList<T> list;
+
+    void repush(const Key& key);
 };
 
 
-template <typename T>
-LRUCache<T>::Node::Node(const T& v, NodePointer p, NodePointer n)
-    : value{v}, previous{p}, next{n}
+template <typename Key, typename T>
+LRUCache<Key, T>::LRUCache()
 {
 }
 
-template <typename T>
-LRUCache<T>::Node::Node(const T& v) : Node{v, nullptr, nullptr}
+template <typename Key, typename T>
+std::ostream& operator<<(std::ostream& os, const LRUCache<Key, T>& map)
 {
+	os << "LRUCache(";
+	if (!map.empty())
+	{
+		auto i = map.list.cbegin();
+		os << *(i++);
+		while (i != map.list.cend())
+		{
+			os << ", " << *(i++);
+		}
+	}
+	os << ")";
+	return os;
 }
 
-template <typename T>
-LRUCache<T>::LRUCache()
-    : head{nullptr}, tail{nullptr}
+template <typename Key, typename T>
+T& LRUCache<Key, T>::operator[](const Key& key)
 {
+	LOGME("pushing");
+	if (contains(key))
+	{
+		push(key, T{});
+	}
+	else
+	{
+		get(key);
+	}
+	return table.at(key)->value;
 }
 
-template <typename T>
-std::string LRUCache<T>::name() const
+template <typename Key, typename T>
+bool LRUCache<Key, T>::empty() const
 {
-    return "LRUCache";
+    return table.empty();
 }
 
-template <typename T>
-std::ostream& operator<<(std::ostream& os, const LRUCache<T>& c)
+template <typename Key, typename T>
+int LRUCache<Key, T>::size() const
 {
-    os << c.name() << "(";
-    if (!c.empty())
+    return table.size();
+}
+
+template <typename Key, typename T>
+bool LRUCache<Key, T>::contains(const Key& key) const
+{
+    return table.find(key) != table.end();
+};
+
+template <typename Key, typename T>
+void LRUCache<Key, T>::push(const Key& key, const T& value)
+{
+    if (contains(key))
     {
-        typename LRUCache<T>::NodePointer current = c.front();
-        os << current->value;
-        while ((current = current->next))
-        {
-            os << ", " << current->value;
-        }
-    }
-    os << ")";
-    return os;
-}
-
-template <typename T>
-typename LRUCache<T>::NodePointer LRUCache<T>::front() const
-{
-    return head;
-}
-
-template <typename T>
-typename LRUCache<T>::NodePointer LRUCache<T>::back() const
-{
-    return tail;
-}
-
-template <typename T>
-typename LRUCache<T>::NodePointer LRUCache<T>::push_back_node(const T& value)
-{
-    if (empty())
-    {
-        head = tail = NodePointer{new Node{value}};
+        repush(key);
     }
     else
     {
-        tail->next = NodePointer{new Node{value, tail, nullptr}};
-        tail = tail->next;
-    }
-    return tail;
-}
-
-template <typename T>
-void LRUCache<T>::erase_node(NodePointer node)
-{
-    if (!node)
-    {
-        throw std::runtime_error{"LRUCache<T>::erase_node - cannot erase nullptr"};
-    }
-    auto previous = node->previous;
-    auto next = node->next;
-    if (previous)
-    {
-        previous->next = next;
-    }
-    else if (next)  // node is the head, and it has a next value
-    {
-        head = next;
-        head->previous.reset();
-    }
-    else    // node is the head, and ONLY item in the linked list
-    {
-        head = tail = NodePointer{};
+        table[key] = list.push_back(value);
     }
 }
 
-template <typename T>
-void LRUCache<T>::pop_first_node()
+template <typename Key, typename T>
+void LRUCache<Key, T>::erase(const Key& key)
 {
-    erase_node(head);
+    if (!contains(key))
+    {
+        throw std::runtime_error{"LRUCache<Key, T>::erase - key not found"};
+    }
+    auto target = table.at(key);
+    list.erase_node(target);
+    table.erase(key);
 }
 
-template <typename T>
-void LRUCache<T>::pop_last_node()
+template <typename Key, typename T>
+void LRUCache<Key, T>::repush(const Key& key)
 {
-    erase_node(tail);
+	const T& value = table.at(key)->value;
+    erase(key);
+    push(key, value);
+}
+
+template <typename Key, typename T>
+const T& LRUCache<Key, T>::get(const Key& key)
+{
+    if (!contains(key))
+    {
+        throw std::runtime_error{"LRUCache<Key, T>::get - key not found"};
+    }
+    const T& value = table.at(key)->value;
+    repush(key);
+    return value;
 }
 
 #undef DEBUG
