@@ -16,16 +16,22 @@
 //   compiler: g++ (GCC) 5.4.0
 //   flags: -std=c++14 -ggdb
 
+#include <algorithm>
+#include <functional>
 #include <iostream>
 #include <iterator>
 #include <memory>
 #include <stdexcept>
 #include <string>
+#include <type_traits>
 #include <unordered_map>
 #include <utility>
+#include <cstddef>
 
 
-template <typename T>
+template <typename T, 
+          typename Hash = std::hash<T>, 
+          typename Predicate = std::equal_to<T>>
 class LinkedHashSet
 {
 private:
@@ -47,8 +53,8 @@ public:
 	LinkedHashSet(InputIterator first, InputIterator last);
 
 	// Operators
-	template <typename TT>
-	friend std::ostream& operator<<(std::ostream& os, const LinkedHashSet<TT>& obj);
+	template <typename TT, typename HashT, typename PredicateT>
+	friend std::ostream& operator<<(std::ostream& os, const LinkedHashSet<TT, HashT, PredicateT>& obj);
 
 	/* Returns true if the set is NOT empty, or false if it is.
 	 * Complexity:
@@ -61,8 +67,26 @@ public:
 	 *   Average case: O(N)
 	 *   Best case: Ω(1) when sizes are different
 	 */
-	bool operator==(const LinkedHashSet<T>& other) const;
-	bool operator!=(const LinkedHashSet<T>& other) const;
+	bool operator==(const LinkedHashSet<T, Hash, Predicate>& other) const;
+	bool operator!=(const LinkedHashSet<T, Hash, Predicate>& other) const;
+
+	/* The complexity of each of the following relational operators is Θ(min(N, K)), 
+	 * where K is the number of elements in 'other'
+	 */
+
+	/* Returns true if this is a proper subset of other */
+	bool operator<(const LinkedHashSet<T, Hash, Predicate>& other) const;
+
+	/* Returns true if this is a subset of other */
+	bool operator<=(const LinkedHashSet<T, Hash, Predicate>& other) const;
+
+	/* Returns true if this is a proper superset of other */
+	bool operator>(const LinkedHashSet<T, Hash, Predicate>& other) const;
+
+	/* Returns true if this is a superset of other */
+	bool operator>=(const LinkedHashSet<T, Hash, Predicate>& other) const;
+
+
 
 	// Member Functions
 	/* Returns the number of items in the set.
@@ -79,7 +103,8 @@ public:
 
 	/* Returns true if no items are in the set (i.e., size() == 0)
 	 * Complexity:
-	 *   Θ(1)
+	 *   Average case: O(1); Θ(k) where k is the number of objects in the bucket that 'item' hashes to.
+	 *   Worst (but improbable) case: O(N) if every item in the set hashed into the same bucket.
 	 */
 	bool empty() const;
 
@@ -107,19 +132,19 @@ public:
 	 * If item is not in the set, throws std::runtime_error.
 	 * Complexity:
 	 *   Average case: O(1)
-	 *   Worst (and improbable) case: O(N) if every item in the set were to collide into the same bucket.
+	 *   Worst (and improbable) case: O(N) if every item in the set hashed into the same bucket.
 	 */
 	void erase(const T& item);
 
 	/* Removes and returns (a copy of) the first item in the set.
 	 * Complexity:
-	 *   Θ(1)
+	 *   (see LinkedHashSet::erase)
 	 */
 	T pop_front();
 
 	/* Removes and returns (a copy of) the last item in the set.
 	 * Complexity:
-	 *   Θ(1)
+	 *   (see LinkedHashSet::erase)
 	 */
 	T pop_back();
 
@@ -129,30 +154,36 @@ public:
 	 */
 	void clear();
 
-	// Iterator Implementation
-	class iterator;
-	auto begin() const -> iterator;
-	auto end() const -> iterator;
 
-	class iterator : public std::iterator<std::bidirectional_iterator_tag, T>
+private:
+	std::unordered_map<T, LinkEntry, Hash, Predicate> table;
+	LinkType head;
+	LinkType last;
+
+	// Iterator Implementation
+	// By templating the iterator_type class with typename UnqualifiedT,
+	// code duplication is virtually eliminated between implementing regular- and const- iterators;
+	// adding 2 public typedefs alias iterator_type<T> as 'iterator', and iterator_type<const T> as 'const_iterator'.
+	template <typename UnqualifiedT = typename std::remove_const<T>::type>
+	class iterator_type : public std::iterator<std::bidirectional_iterator_tag, UnqualifiedT, std::ptrdiff_t, T*, T&>
 	{
 	public:
-		iterator(LinkedHashSet<T>* set, LinkType start, unsigned int visited);
+		iterator_type(const LinkedHashSet<T, Hash, Predicate>* set, LinkType start, unsigned int visited);
 
 		/* Complexity:
 		 *   All iterator operations incur O(1) time.
 		 */
-		bool operator==(const iterator& other) const;
-		bool operator!=(const iterator& other) const;
-		auto operator++() -> iterator&;
-		auto operator++(int) -> iterator;
-		auto operator--() -> iterator&;
-		auto operator--(int) -> iterator;
-		const T& operator*() const;
+		bool operator==(const iterator_type& other) const;
+		bool operator!=(const iterator_type& other) const;
+		auto operator++() -> iterator_type&;
+		auto operator++(int) -> iterator_type;
+		auto operator--() -> iterator_type&;
+		auto operator--(int) -> iterator_type;
+		UnqualifiedT& operator*();
 		const LinkType operator->() const;
 
 	private:
-		LinkedHashSet<T>* ref;
+		const LinkedHashSet<T, Hash, Predicate>* ref;	// raw pointer (instead of smart pointer) because no dynamic allocation or modifying operations are used
 		LinkType current;
 		unsigned int traversed;	// store a value representing the current "index"
 								// to allow Θ(1) iterator equality comparisons.
@@ -163,23 +194,30 @@ public:
 		void bound_check(const std::string& message) const;
 	};
 
+	
+public:
+	typedef iterator_type<const T> const_iterator;
+	typedef const_iterator iterator;
 
-private:
-	std::unordered_map<T, LinkEntry> table;
-	LinkType head;
-	LinkType last;
+	auto cbegin() const -> const_iterator;
+	auto cend() const -> const_iterator;
+	
+	// begin() and end() both return const_iterators;
+	// LinkedHashSet does not support non-const iterators, as hash tables cannot have values reassigned (without rehashing them).
+	auto begin() const -> iterator;
+	auto end() const -> iterator;
 };
 
 
-template <typename T>
-LinkedHashSet<T>::LinkedHashSet()
+template <typename T, typename Hash, typename Predicate>
+LinkedHashSet<T, Hash, Predicate>::LinkedHashSet()
 	: head{nullptr}, last{nullptr}
 {
 }
 
-template <typename T>
+template <typename T, typename Hash, typename Predicate>
 template <typename InputIterator>
-LinkedHashSet<T>::LinkedHashSet(InputIterator first, InputIterator last) : LinkedHashSet<T>{}
+LinkedHashSet<T, Hash, Predicate>::LinkedHashSet(InputIterator first, InputIterator last) : LinkedHashSet<T, Hash, Predicate>{}
 {
 	while (first != last)
 	{
@@ -187,8 +225,8 @@ LinkedHashSet<T>::LinkedHashSet(InputIterator first, InputIterator last) : Linke
 	}
 }
 
-template <typename T>
-std::ostream& operator<<(std::ostream& os, const LinkedHashSet<T>& obj)
+template <typename T, typename Hash, typename Predicate>
+std::ostream& operator<<(std::ostream& os, const LinkedHashSet<T, Hash, Predicate>& obj)
 {
 	os << "LinkedHashSet(";
 	auto i = obj.begin();
@@ -204,44 +242,68 @@ std::ostream& operator<<(std::ostream& os, const LinkedHashSet<T>& obj)
 	return os;
 }
 
-template <typename T>
-LinkedHashSet<T>::operator bool() const
+template <typename T, typename Hash, typename Predicate>
+LinkedHashSet<T, Hash, Predicate>::operator bool() const
 {
 	return !empty();
 }
 
-template <typename T>
-bool LinkedHashSet<T>::operator==(const LinkedHashSet<T>& other) const
+template <typename T, typename Hash, typename Predicate>
+bool LinkedHashSet<T, Hash, Predicate>::operator==(const LinkedHashSet<T, Hash, Predicate>& other) const
 {
-	return size() == other.size();
+	return table == other.table;
 }
 
-template <typename T>
-bool LinkedHashSet<T>::operator!=(const LinkedHashSet<T>& other) const
+template <typename T, typename Hash, typename Predicate>
+bool LinkedHashSet<T, Hash, Predicate>::operator!=(const LinkedHashSet<T, Hash, Predicate>& other) const
 {
 	return !operator==(other);
 }
 
-template <typename T>
-int LinkedHashSet<T>::size() const
+template <typename T, typename Hash, typename Predicate>
+bool LinkedHashSet<T, Hash, Predicate>::operator<(const LinkedHashSet<T, Hash, Predicate>& other) const
+{
+	return other > *this;
+}
+
+template <typename T, typename Hash, typename Predicate>
+bool LinkedHashSet<T, Hash, Predicate>::operator<=(const LinkedHashSet<T, Hash, Predicate>& other) const
+{
+	return !(other < *this);
+}
+
+template <typename T, typename Hash, typename Predicate>
+bool LinkedHashSet<T, Hash, Predicate>::operator>(const LinkedHashSet<T, Hash, Predicate>& other) const
+{
+	return size() > other.size() && *this >= other;
+}
+
+template <typename T, typename Hash, typename Predicate>
+bool LinkedHashSet<T, Hash, Predicate>::operator>=(const LinkedHashSet<T, Hash, Predicate>& other) const
+{
+	return std::includes(begin(), end(), other.begin(), other.end());
+}
+
+template <typename T, typename Hash, typename Predicate>
+int LinkedHashSet<T, Hash, Predicate>::size() const
 {
 	return table.size();
 }
 
-template <typename T>
-bool LinkedHashSet<T>::empty() const
+template <typename T, typename Hash, typename Predicate>
+bool LinkedHashSet<T, Hash, Predicate>::empty() const
 {
 	return size() == 0;
 }
 
-template <typename T>
-bool LinkedHashSet<T>::contains(const T& item) const
+template <typename T, typename Hash, typename Predicate>
+bool LinkedHashSet<T, Hash, Predicate>::contains(const T& item) const
 {
 	return table.find(item) != table.end();
 }
 
-template <typename T>
-void LinkedHashSet<T>::insert(const T& item)
+template <typename T, typename Hash, typename Predicate>
+void LinkedHashSet<T, Hash, Predicate>::insert(const T& item)
 {
 	if (!contains(item))
 	{
@@ -263,8 +325,8 @@ void LinkedHashSet<T>::insert(const T& item)
 	}
 }
 
-template <typename T>
-void LinkedHashSet<T>::erase(const T& item)
+template <typename T, typename Hash, typename Predicate>
+void LinkedHashSet<T, Hash, Predicate>::erase(const T& item)
 {
 	if (!contains(item))
 	{
@@ -293,66 +355,82 @@ void LinkedHashSet<T>::erase(const T& item)
 	}
 }
 
-template <typename T>
-T LinkedHashSet<T>::pop_front()
+template <typename T, typename Hash, typename Predicate>
+T LinkedHashSet<T, Hash, Predicate>::pop_front()
 {
 	T value = *head;
 	erase(value);
 	return value;
 }
 
-template <typename T>
-T LinkedHashSet<T>::pop_back()
+template <typename T, typename Hash, typename Predicate>
+T LinkedHashSet<T, Hash, Predicate>::pop_back()
 {
 	T value = *last;
 	erase(value);
 	return value;
 }
 
-template <typename T>
-void LinkedHashSet<T>::clear()
+template <typename T, typename Hash, typename Predicate>
+void LinkedHashSet<T, Hash, Predicate>::clear()
 {
 	if (!empty())
 	{
-		table.clear();
 		head.reset();
 		last.reset();
+		table.clear();
 	}
 }
 
-template <typename T>
-auto LinkedHashSet<T>::begin() const -> iterator
+template <typename T, typename Hash, typename Predicate>
+auto LinkedHashSet<T, Hash, Predicate>::cbegin() const -> const_iterator
 {
-	return iterator{const_cast<LinkedHashSet<T>*>(this), head, 0};
+	return const_iterator{this, head, 0};
 }
 
-template <typename T>
-auto LinkedHashSet<T>::end() const -> iterator
+template <typename T, typename Hash, typename Predicate>
+auto LinkedHashSet<T, Hash, Predicate>::cend() const -> const_iterator
 {
 	unsigned int sz = size();		// silence g++ warning about conflicting types (unsigned int vs. int)
-	return iterator{const_cast<LinkedHashSet<T>*>(this), LinkType{nullptr}, sz};
+	return const_iterator{this, LinkType{nullptr}, sz};
 }
 
-template <typename T>
-LinkedHashSet<T>::iterator::iterator(LinkedHashSet<T>* set, LinkType start, unsigned int visited)
+template <typename T, typename Hash, typename Predicate>
+auto LinkedHashSet<T, Hash, Predicate>::begin() const -> iterator
+{
+	return cbegin();
+}
+
+template <typename T, typename Hash, typename Predicate>
+auto LinkedHashSet<T, Hash, Predicate>::end() const -> iterator
+{
+	return cend();
+}
+
+template <typename T, typename Hash, typename Predicate>
+template <typename UnqualifiedT>
+LinkedHashSet<T, Hash, Predicate>::iterator_type<UnqualifiedT>::iterator_type(const LinkedHashSet<T, Hash, Predicate>* set, LinkType start, unsigned int visited)
 	: ref{set}, current{start}, traversed{visited}
 {
 }
 
-template <typename T>
-bool LinkedHashSet<T>::iterator::operator==(const iterator& other) const
+template <typename T, typename Hash, typename Predicate>
+template <typename UnqualifiedT>
+bool LinkedHashSet<T, Hash, Predicate>::iterator_type<UnqualifiedT>::operator==(const iterator_type<UnqualifiedT>& other) const
 {
 	return ref == other.ref && traversed == other.traversed;
 }
 
-template <typename T>
-bool LinkedHashSet<T>::iterator::operator!=(const iterator& other) const
+template <typename T, typename Hash, typename Predicate>
+template <typename UnqualifiedT>
+bool LinkedHashSet<T, Hash, Predicate>::iterator_type<UnqualifiedT>::operator!=(const iterator_type<UnqualifiedT>& other) const
 {
 	return !operator==(other);
 }
 
-template <typename T>
-auto LinkedHashSet<T>::iterator::operator++() -> iterator&
+template <typename T, typename Hash, typename Predicate>
+template <typename UnqualifiedT>
+auto LinkedHashSet<T, Hash, Predicate>::iterator_type<UnqualifiedT>::operator++() -> iterator_type<UnqualifiedT>&
 {
 	if (current && traversed < ref->size())
 	{
@@ -362,16 +440,18 @@ auto LinkedHashSet<T>::iterator::operator++() -> iterator&
 	return *this;
 }
 
-template <typename T>
-auto LinkedHashSet<T>::iterator::operator++(int) -> iterator
+template <typename T, typename Hash, typename Predicate>
+template <typename UnqualifiedT>
+auto LinkedHashSet<T, Hash, Predicate>::iterator_type<UnqualifiedT>::operator++(int) -> iterator_type<UnqualifiedT>
 {
-	iterator state{*this};		// invoke implicit copy constructor
+	iterator_type state{*this};		// invoke implicit copy constructor
 	operator++();
 	return state;
 }
 
-template <typename T>
-auto LinkedHashSet<T>::iterator::operator--() -> iterator&
+template <typename T, typename Hash, typename Predicate>
+template <typename UnqualifiedT>
+auto LinkedHashSet<T, Hash, Predicate>::iterator_type<UnqualifiedT>::operator--() -> iterator_type<UnqualifiedT>&
 {
 	if (!current)	// past end
 	{
@@ -385,30 +465,34 @@ auto LinkedHashSet<T>::iterator::operator--() -> iterator&
 	return *this;
 }
 
-template <typename T>
-auto LinkedHashSet<T>::iterator::operator--(int) -> iterator
+template <typename T, typename Hash, typename Predicate>
+template <typename UnqualifiedT>
+auto LinkedHashSet<T, Hash, Predicate>::iterator_type<UnqualifiedT>::operator--(int) -> iterator_type<UnqualifiedT>
 {
-	iterator state{*this};
+	iterator_type state{*this};
 	operator--();
 	return state;
 }
 
-template <typename T>
-const T& LinkedHashSet<T>::iterator::operator*() const
+template <typename T, typename Hash, typename Predicate>
+template <typename UnqualifiedT>
+UnqualifiedT& LinkedHashSet<T, Hash, Predicate>::iterator_type<UnqualifiedT>::operator*()
 {
-	bound_check("LinkedHashSet::iterator::operator* - iterator past end");
+	bound_check("LinkedHashSet::iterator_type::operator* - iterator past end");
 	return *current;
 }
 
-template <typename T>
-const typename LinkedHashSet<T>::LinkType LinkedHashSet<T>::iterator::operator->() const
+template <typename T, typename Hash, typename Predicate>
+template <typename UnqualifiedT>
+const typename LinkedHashSet<T, Hash, Predicate>::LinkType LinkedHashSet<T, Hash, Predicate>::iterator_type<UnqualifiedT>::operator->() const
 {
-	bound_check("LinkedHashSet::iterator::operator-> iterator past end");
+	bound_check("LinkedHashSet::iterator_type::operator-> iterator past end");
 	return current;
 }
 
-template <typename T>
-void LinkedHashSet<T>::iterator::bound_check(const std::string& message) const
+template <typename T, typename Hash, typename Predicate>
+template <typename UnqualifiedT>
+void LinkedHashSet<T, Hash, Predicate>::iterator_type<UnqualifiedT>::bound_check(const std::string& message) const
 {
 	if (!current)
 	{
