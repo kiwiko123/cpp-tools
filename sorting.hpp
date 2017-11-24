@@ -41,40 +41,50 @@ namespace
         unsigned int least_sig_digit = key % (int)pow(radix, pass);
         return least_sig_digit / pow(radix, pass - 1);
     }
+}
 
-	template <typename RandomAccessIterator>
-	void merge(RandomAccessIterator first, RandomAccessIterator left_end, RandomAccessIterator right_start, RandomAccessIterator last)
-	{
-		unsigned int size = std::distance(first, last);
-		std::unique_ptr<RandomAccessIterator[]> temp{new RandomAccessIterator[size + 1]};
 
-		auto i = first;
-		auto j = right_start;
-		for (unsigned int n = 0; n < size; ++n)
-		{
-			if (i == left_end)
-			{
-				temp[n] = j++;
-			}
-			else if (j == last)
-			{
-				temp[n] = i++;
-			}
-			else if (*i <= *j)
-			{
-				temp[n] = i++;
-			}
-			else
-			{
-				temp[n] = j++;
-			}
-		}
+// ================================================
+// HELPER FUNCTIONS
+// ================================================
+template <typename InputIterator>
+InputIterator iterator_max(InputIterator a, InputIterator b)
+{
+    return *a >= *b ? a : b;
+}
 
-		for (unsigned int n = 0; n < size; ++n)
-		{
-			*(first++) = *(std::move(temp[n]));
-		}
-	}
+template <typename InputIterator>
+InputIterator iterator_min(InputIterator a, InputIterator b)
+{
+    return *a <= *b ? a : b;
+}
+
+template <typename RandomAccessIterator>
+RandomAccessIterator median_of_three(RandomAccessIterator first, RandomAccessIterator last)
+{
+    int size = std::distance(first, last);
+    if (size < 3)
+    {
+        return first;
+    }
+    auto mid = first + std::floor(size / 2);
+    return iterator_max(iterator_min(first, mid), iterator_min(iterator_max(first, mid), last - 1));
+}
+
+template <typename RandomAccessIterator>
+RandomAccessIterator partition(RandomAccessIterator first, RandomAccessIterator last)
+{
+    // TODO: intelligently choose pivot
+    auto pivot = first;
+    for (auto k = first + 1; k < last; ++k)
+    {
+        if (*k < *first)
+        {
+            std::swap(*(++pivot), *k);
+        }
+    }
+    std::swap(*first, *pivot);
+    return pivot;
 }
 
 
@@ -82,22 +92,48 @@ namespace
 // Comparison-based Sorting Algorithms
 // -----------------------------------
 
-/* O(N^2) sorting algorithm.
- * Insertion sort maintains 2 portions of the target array: [sorted | unsorted].
+/* Selection sort.
+ * Starts from index i = (n - 1) and finds the maximum value from [0, i], swapping that with the value at position i.
+ * Finding the maximum at each iteration incurs O(n) time;
+ * Performing this operation n times results in Θ(n^2) comparisons.
+ *
+ * Θ(n^2) time.
+ * O(1) extra space.
+ * Unstable.
+ */
+template <typename BidirectionalIterator>
+void selection_sort(BidirectionalIterator first, BidirectionalIterator last)
+{
+    for (auto i = last - 1; i != first; --i)
+    {
+        auto temp = i;
+        auto position_of_max = std::max_element(first, ++temp);
+        std::swap(*i, *position_of_max);
+    }
+}
+
+/* Insertion sort.
+ * Maintains 2 portions of the target array: [sorted | unsorted].
  * At each iteration, the cursor '|' moves up one position, 
  * and moves 1 value from the unsorted portion to its correct position in the sorted portion,
  * by starting from the end of the sorted portion and swapping it with its previous neighbor 
  * towards the front of the array until it is appropriately positioned.
- * As such, insertion sort is a stable, in-place algorithm.
- * For already sorted or nearly-sorted input containers, insertion sort approaches linear time.
+ * As such, insertion sort maintains the original ordering of equivalent keys.
+ * For already sorted or nearly-sorted input containers, insertion sort approaches linear time,
+ * as the inner loop will immediately break when the value is already greater than or equal to its left adjacent neighbor.
+ *
+ * Worst/Average case: O(n^2) time.
+ * Best case: Ω(n) time.
+ * O(1) extra space.
+ * Stable.
  */
 template <typename BidirectionalIterator>
 void insertion_sort(BidirectionalIterator first, BidirectionalIterator last)
 {
     for (BidirectionalIterator current = first; current != last; ++current)
     {
-        BidirectionalIterator left_neighbor = current;
-        BidirectionalIterator back = left_neighbor--;
+        auto left_neighbor = current;
+        auto back = left_neighbor--;
         while (back != first && *back < *left_neighbor)
         {
             std::swap(*(back--), *(left_neighbor--));
@@ -105,22 +141,34 @@ void insertion_sort(BidirectionalIterator first, BidirectionalIterator last)
     }
 }
 
-
+/* Quick sort.
+ * Divide-and-conquer algorithm that splits the input sequence into 2 halves,
+ * choosing a "pivot" element and moving all elements less than the pivot to its left,
+ * and all elements greater than the pivot to its right,
+ * then recursively sorts both halves of the sequence.
+ *
+ * If a good pivot is chosen (i.e., a value close to the middle of the range),
+ * quicksort empirically performs well.
+ * If a bad pivot is chosen (close to the max/min of the range), then it will approach quadratic time -
+ * this is because it will perform n comparisons in attempting to move elements to the appropriate side of the pivot,
+ * but will iterate through without having accomplished any re-ordering, thus effectively invoking a recursive call
+ * on one subsequence of size 1, and another on one of size (n - 1).
+ *
+ * Worst case: O(n^2) time.
+ * Best/Average case: O(nlog n) time.
+ * Ω(log n) extra space (recursive stack space).
+ * Unstable.
+ */
 template <typename RandomAccessIterator>
-void merge_sort(RandomAccessIterator first, RandomAccessIterator last)
+void quick_sort(RandomAccessIterator first, RandomAccessIterator last)
 {
-	if (first < last)
-	{
-		unsigned int size = std::distance(first, last);		// Θ(1) for random access iterators
-		auto mid = first + (size / 2);
-
-		merge_sort(first, mid);
-		merge_sort(mid + 1, last);
-
-		merge(first, mid, mid + 1, last);
-	}
+    if (first < last)
+    {
+        auto pivot = partition(first, last);
+        quick_sort(first, pivot);
+        quick_sort(pivot + 1, last);
+    }
 }
-
 
 
 // Linear-time Sorting Algorithms
