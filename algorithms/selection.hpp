@@ -62,12 +62,30 @@ int find_maximum(InputIterator first, InputIterator last)
  *   3) finding the maximum of the new sequence: n - 2 comparisons
  * This requires Θ(2n - 3) comparisons.
  *
- * Using a tournament tree, the second-largest element is one of the elements
- * that was directly compared with the maximum.
+ * Using a tournament tree, the second-largest element is one of the elements that was directly compared with the maximum.
  * By building a bottom-up heap to represent the comparisons, we can:
  *   - find the maximum value using n - 1 comparisons
  *   - find the second-largest value in O(log n) time
  *   - find the second-largest value by searching the tournament-tree using ⌈log n⌉ - 1 comparisons.
+ *
+ * Example: [64, 41, 53, 62, 68, 60, 75, 63]
+ * build tournament tree:
+ * 
+ *           75
+ *      /          \
+ *     64          75
+ *   /    \      /    \
+ *  64    62    68    75
+ *  / \   / \   / \   / \
+ * 64 41 53 62 68 60 75 63
+ *
+ * Build the tree bottom-up - the leaves are each pair of numbers:
+ * (64, 41), (53, 62), (68, 60), (75, 63)
+ *
+ * Select the "winners" (greater numbers) of each pair.
+ * Continue doing this until the entire tree is built.
+ * Descend the tree in O(log n) time to find the maximum value that 75 was compared to.
+ * This incurs Θ(⌈log n⌉ - 1) comparisons.
  */
 template <typename InputIterator>
 int find_second_largest(InputIterator first, InputIterator last)
@@ -79,8 +97,10 @@ int find_second_largest(InputIterator first, InputIterator last)
         return *first;
     }
 
-    std::deque<int> tournament{first, last};
+    std::deque<int> tournament{first, last};    // initially contains just the leaves
     int current_level_size = size;
+
+    // O(n): builds the heap, bottom-up
     while (current_level_size > 1)
     {
         // winners represents the parents of the current level of the tournament-tree
@@ -135,10 +155,14 @@ int find_second_largest(InputIterator first, InputIterator last)
  * Let G be the sequence of items in S that are greater than m*.
  *
  * Recursively select L, E, or G as appropriate.
+ *
+ * Worst case: O(n^2) time
+ * Best/Average case: O(n) time.
  */
 template <typename InputIterator>
 int quick_select(InputIterator first, InputIterator last, int k)
 {
+    bound_check(first, last);
     int size = std::distance(first, last);
     if (size == 1)
     {
