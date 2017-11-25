@@ -7,13 +7,14 @@
  *             Apple LLVM version 9.0.0 (clang-900.0.38)
  *   version: C++14
  */
-#ifndef _SORTING_HPP
-#define _SORTING_HPP
+#ifndef _ALGORITHMS_SORTING_HPP
+#define _ALGORITHMS_SORTING_HPP
 
 #include <algorithm>
 #include <iterator>
 #include <memory>
 #include <utility>
+#include <vector>
 #include <cmath>
 
 
@@ -217,4 +218,39 @@ void counting_sort(RandomAccessIterator first, RandomAccessIterator last)
     }
 }
 
-#endif // SORTING_HPP
+/* Bucket sort.
+ * Divides the integer-based keys in [first, last) into contiguous std::vector subarrays (buckets).
+ * Let n be the number of items in [first, last), k be the range, and b be the number of buckets.
+ * Distributes the items into equal-sized buckets, based on specific cutoff points (k / b).
+ * Sorts each bucket using insertion sort.
+ * Merges all the sorted buckets back into the original iterators.
+ *
+ * Let s(i) be the number of items in bucket i.
+ * Θ(n + s(0)^2 + s(1)^2 + ... + s(b)^2 + b) = O(n) time, when b <= n.
+ * O(n + b) extra space.
+ * Stable - keys are added to each bucket in the same order they appear.
+ */
+template <typename BidirectionalIterator, typename BucketContainer = std::vector<int>>
+void bucket_sort(BidirectionalIterator first, BidirectionalIterator last, int range, int number_of_buckets)
+{
+    std::unique_ptr<BucketContainer[]> buckets{new std::vector<int>[number_of_buckets]};
+    int cutoff = range / number_of_buckets;
+    for (auto current = first; current != last; ++current)
+    {
+        int bucket_index = std::floor(*current / cutoff);
+        buckets[bucket_index].push_back(*current);
+    }
+
+    for (int i = 0; i < number_of_buckets; ++i)
+    {
+        BucketContainer& bucket = buckets[i];
+        insertion_sort(bucket.begin(), bucket.end());
+
+        for (const auto& element: bucket)
+        {
+            *(first++) = element;
+        }
+    }
+}
+
+#endif // _ALGORITHMS_SORTING_HPP
