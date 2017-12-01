@@ -173,52 +173,31 @@ int find_second_largest(InputIterator first, InputIterator last)
 }
 
 
-template <typename InputIterator, typename Selector>
-int select_k(InputIterator first, InputIterator last, int k, int median, 
-             std::vector<int>& less, std::vector<int>& equal, std::vector<int>& greater,
-             const Selector& selector)
-{
-    while (first != last)
-    {
-        if (*first < median)
-        {
-            less.push_back(*first);
-        }
-        else if (*first > median)
-        {
-            greater.push_back(*first);
-        }
-        else
-        {
-            equal.push_back(*first);
-        }
-        ++first;
-    }
 
-    if (k <= less.size())
-    {
-        return selector(less.begin(), less.end(), k);
-    }
-    else if (k <= (less.size() + equal.size()))
-    {
-        return median;
-    }
-    else
-    {
-        return selector(greater.begin(), greater.end(), k - less.size() - equal.size());
-    }
-}
+/* ========================================================================
+ * General guidelines for selecting the k-th smallest element of a sequence
+ * ========================================================================
+ *
+ * Given a chosen median m*, partitions S into 3 subsequences - L, E, and G.
+ *   L: all items in S less than m*
+ *   E: all items in S equal to m*
+ *   G: all items in S greater than m*
+ *
+ * The appropriate subsequence is then chosen by comparing k with their cumulative sizes.
+ * If k is:
+ *   - less than |L|, then recursively search L.
+ *   - less than or equal to |L| + |E|, then return m* (the kth smallest element is m*).
+ *   - less than or equal to |l| + |E| + |G|, then recursively search G for the (k - |L| - |E|)th smallest element.
+ *
+ * ========================================================================
+ * ========================================================================
+ */
 
 
 /* Quick select.
  * Prune-and-search algorithm for finding the k-th smallest value in the iterator range [first, last).
  * Choose an approximate median "m*" randomly from [first, last).
- * Let S be the sequence of items from [first, last).
- * Let L be the sequence of items in S that are less than m*.
- * Let E be the sequence of items in S that are equal to m*.
- * Let G be the sequence of items in S that are greater than m*.
- *
- * Recursively select L, E, or G as appropriate.
+ * Follow the general guidelines, using randomly-chosen median m*.
  *
  * Worst case: O(n^2) time
  * Best/Average case: O(n) time.
@@ -275,6 +254,18 @@ int quick_select(InputIterator first, InputIterator last, int k)
 }
 
 
+/* Deterministic select.
+ * Choose the median-of-medians as m* to better-balance the partitioning of L, E, and G.
+ * Divide S into ceiling(n/5) groups, all of which are of exactly size 5 (except possibly the last one).
+ * Find the median of each subgroup through brute force.
+ * Find the median-of-medians by recursively calling deterministic_select on the sequence of each group's median value.
+ * Follow the general guidelines, using the calculated median-of-medians m*.
+ *
+ * Best/Worst/Average case: O(n) time.
+ * 
+ * Though deterministic selection is asymptotically optimal, there is a high constant associated with its run time,
+ * so quick select can empirically outperforms it.
+ */
 template <typename InputIterator>
 int deterministic_select(InputIterator first, InputIterator last, int k)
 {
@@ -299,14 +290,14 @@ int deterministic_select(InputIterator first, InputIterator last, int k)
         groups[std::floor(i / group_factor)][i % group_factor_i] = *(current++);
     }
 
-    // 2. find the medians of each group, again using brute force
+    // 2. find the median of each group, again using brute force
     for (unsigned int i = 0; i < n_groups; ++i)
     {
         const std::vector<int>& target = groups[i];
         medians[i] = brute_force_select(target.begin(), target.end(), std::floor(median_of_n_groups));
     }
 
-    // 3. compute m* (median-of-medians)
+    // 3. recurisvely compute m* (median-of-medians)
     int median_of_medians = deterministic_select(medians.begin(), medians.end(), std::floor(median_of_n_groups));
 
     // 4. parition into L, E, G
