@@ -35,20 +35,6 @@ namespace
     }
 
     template <typename InputIterator>
-    int brute_force_median(InputIterator first, InputIterator last)
-    {
-        std::vector<int> temp{first, last};
-        std::sort(temp.begin(), temp.end());
-        int offset = std::floor(temp.size() / 2);
-        int median = temp[offset];
-        if (temp.size() % 2 == 0)
-        {
-            median = (median + temp[offset + 1]) / 2;
-        }
-        return median;
-    }
-
-    template <typename InputIterator>
     int brute_force_select(InputIterator first, InputIterator last, int k)
     {
         std::vector<int> temp{first, last};
@@ -178,16 +164,17 @@ int find_second_largest(InputIterator first, InputIterator last)
  * General guidelines for selecting the k-th smallest element of a sequence
  * ========================================================================
  *
- * Given a chosen median m*, partitions S into 3 subsequences - L, E, and G.
+ * 1. Choose median value, m*.
+ * 2. Partitions S into 3 subsequences - L, E, and G.
  *   L: all items in S less than m*
  *   E: all items in S equal to m*
  *   G: all items in S greater than m*
  *
- * The appropriate subsequence is then chosen by comparing k with their cumulative sizes.
- * If k is:
- *   - less than |L|, then recursively search L.
- *   - less than or equal to |L| + |E|, then return m* (the kth smallest element is m*).
- *   - less than or equal to |l| + |E| + |G|, then recursively search G for the (k - |L| - |E|)th smallest element.
+ * 3. Choose the appropriate subsequence is by comparing k with the cumulative sizes.
+ *    If k is:
+ *       - less than |L|, then recursively search L.
+ *       - less than or equal to |L| + |E|, then return m* (the kth smallest element is m*).
+ *       - less than or equal to |l| + |E| + |G|, then recursively search G for the (k - |L| - |E|)th smallest element.
  *
  * ========================================================================
  * ========================================================================
@@ -256,7 +243,7 @@ int quick_select(InputIterator first, InputIterator last, int k)
 
 /* Deterministic select.
  * Choose the median-of-medians as m* to better-balance the partitioning of L, E, and G.
- * Divide S into ceiling(n/5) groups, all of which are of exactly size 5 (except possibly the last one).
+ * Divide S into ⌈n/5⌉ groups, all of which are of exactly size 5 (except possibly the last one).
  * Find the median of each subgroup through brute force.
  * Find the median-of-medians by recursively calling deterministic_select on the sequence of each group's median value.
  * Follow the general guidelines, using the calculated median-of-medians m*.
@@ -264,7 +251,7 @@ int quick_select(InputIterator first, InputIterator last, int k)
  * Best/Worst/Average case: O(n) time.
  * 
  * Though deterministic selection is asymptotically optimal, there is a high constant associated with its run time,
- * so quick select can empirically outperforms it.
+ * making quick select a viable candidate for empirical performance.
  */
 template <typename InputIterator>
 int deterministic_select(InputIterator first, InputIterator last, int k)
