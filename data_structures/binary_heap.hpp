@@ -1,6 +1,6 @@
 /* A binary heap is a special type of binary tree.
  * It follows a strict invariant, as per its comparator, which defaults to std::greater<T>.
- * A binary heap with such a comparator is called a Max Heap, whose invariant is that
+ * A binary heap with such a comparator is called a Max Heap, whose ordering mandates that
  * every node is greater than all of its descendants.
  * Additionally, nodes are inserted into the bottom-most, left-most branch,
  * guaranteeing that heaps will never be degenerate,
@@ -15,10 +15,10 @@
  * the only way to produce items in order is to extract (retrieve and erase) every element.
  * Additionally, only const_iterators are supported, as modifying items would require the invariant be restored.
  *
- * Binary heaps make efficient priority queue implementation, as the top element can be retrieved in constant time,
+ * Binary heaps make efficient priority queue implementations, as the top element can be retrieved in constant time,
  * and inserting elements incur logarithmic time.
  *
- * Author: Geoffrey Ko (2017)
+ * Author: Geoffrey Ko (2018)
  * Developed using the following configuration:
  *   compiler: clang++
  *             Apple LLVM version 9.0.0 (clang-900.0.38)
@@ -185,11 +185,14 @@ template <typename T, typename Comparator>
 std::ostream& operator<<(std::ostream& os, const BinaryHeap<T, Comparator>& bh)
 {
     os << "BinaryHeap(";
-    auto i = bh.heap.begin();
-    os << *(i++);
-    while (i != bh.heap.end())
+    BinaryHeap<T, Comparator> copy{bh};
+    if (!copy.empty())
     {
-        os << ", " << *(i++);
+        os << copy.extract();
+    }
+    while (!copy.empty())
+    {
+        os << ", " << copy.extract();
     }
     os << ")";
     return os;
@@ -278,7 +281,7 @@ template <typename T, typename Comparator>
 void BinaryHeap<T, Comparator>::sift_up(int i)
 {
     int parent = parent_of(i);
-    if (in_heap(parent) && comp(heap[i], heap[parent]))
+    if (in_heap(i) && comp(heap[i], heap[parent]))
     {
         std::swap(heap[parent], heap[i]);
         sift_up(parent);
@@ -292,13 +295,13 @@ void BinaryHeap<T, Comparator>::sift_down(int i)
     int right = right_child(i);
     int larger;
 
-    if (in_heap(left) && comp(heap[left], heap[right]))
-    {
-        larger = left;
-    }
-    else if (in_heap(right))
+    if (in_heap(right) && comp(heap[right], heap[left]))
     {
         larger = right;
+    }
+    else if (in_heap(left))
+    {
+        larger = left;
     }
     else
     {
