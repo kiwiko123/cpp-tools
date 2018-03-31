@@ -281,7 +281,7 @@ template <typename T, typename Comparator>
 void BinaryHeap<T, Comparator>::sift_up(int i)
 {
     int parent = parent_of(i);
-    if (in_heap(i) && comp(heap[i], heap[parent]))
+    if (in_heap(i) && in_heap(parent) && comp(heap[i], heap[parent]))
     {
         std::swap(heap[parent], heap[i]);
         sift_up(parent);
@@ -318,7 +318,7 @@ void BinaryHeap<T, Comparator>::sift_down(int i)
 template <typename T, typename Comparator>
 void BinaryHeap<T, Comparator>::heapify()
 {
-    for (int i = parent_of(size() - 1); i >= 0; --i)
+    for (int i = parent_of(size()); i >= 0; --i)
     {
         sift_down(i);
     }
